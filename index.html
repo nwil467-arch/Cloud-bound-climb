@@ -590,9 +590,12 @@
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const gameX = x * (W / Math.max(1, rect.width));
-    swipeStarts.set(e.pointerId, {x, y, jumped:false, moved:false, lastX:x, lastY:y});
+    // In swipe mode, anchor each new touch to the player's current position.
+    // Lifting and placing the thumb elsewhere will not instantly steer the player.
+    const playerAnchorX = player.x + player.w/2;
+    swipeStarts.set(e.pointerId, {x, y, jumped:false, moved:false, lastX:x, lastY:y, playerAnchorX});
     pointers.set(e.pointerId, save.touchMode === 'classic' ? (gameX < W/2 ? 'L' : 'R') : null);
-    if(save.touchMode === 'swipe') thumbTargetX = clamp(gameX, player.w/2, W-player.w/2);
+    if(save.touchMode === 'swipe') thumbTargetX = clamp(playerAnchorX, player.w/2, W-player.w/2);
     if(save.touchMode === 'classic' && !save.auto && gameX >= W/2) player.jumpBuffer = .16;
     try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
     refreshTouch();
@@ -605,8 +608,9 @@
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const dx = x - start.x, dy = y - start.y;
     if(save.touchMode === 'swipe'){
-      // In swipe mode the player tracks the thumb's horizontal screen position.
-      thumbTargetX = clamp(x * (W / Math.max(1, rect.width)), player.w/2, W-player.w/2);
+      // Steer relative to where this touch began. Repositioning a lifted thumb
+      // won't send the player toward the new touch location; only thumb movement steers.
+      thumbTargetX = clamp(start.playerAnchorX + dx * (W / Math.max(1, rect.width)), player.w/2, W-player.w/2);
       if(Math.abs(dx) > 3 || Math.abs(dy) > 3) start.moved = true;
       // Upward or diagonal swipe: jump immediately when grounded, otherwise buffer it.
       if(!save.auto && !start.jumped && dy < -9 && Math.abs(dy) >= Math.abs(dx) * .18){
