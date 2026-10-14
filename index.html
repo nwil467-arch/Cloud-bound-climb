@@ -585,9 +585,9 @@
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const gameX = x * (W / Math.max(1, rect.width));
-    swipeStarts.set(e.pointerId, {x, y, lastX:x, lastY:y, jumped:false, moved:false});
+    swipeStarts.set(e.pointerId, {x, y, jumped:false, moved:false});
     pointers.set(e.pointerId, save.touchMode === 'classic' ? (gameX < W/2 ? 'L' : 'R') : null);
-    if(save.touchMode === 'classic' && !save.auto && gameX >= W/2) player.jumpBuffer = .13;
+    if(save.touchMode === 'classic' && !save.auto && gameX >= W/2) player.jumpBuffer = .16;
     try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
     refreshTouch();
   }, {passive:false});
@@ -599,12 +599,20 @@
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const dx = x - start.x, dy = y - start.y;
     if(save.touchMode === 'swipe'){
-      if(Math.abs(dx) > 7 && Math.abs(dx) >= Math.abs(dy) * .45){ pointers.set(e.pointerId, dx < 0 ? 'L' : 'R'); start.moved = true; }
-      if(!save.auto && !start.jumped && dy < -30 && Math.abs(dy) > Math.abs(dx) * .8){
-        player.jumpBuffer = .18; start.jumped = true; start.moved = true; pointers.set(e.pointerId, null);
+      // Small horizontal swipes respond quickly, without needing a long drag.
+      if(Math.abs(dx) > 3 && Math.abs(dx) >= Math.abs(dy) * .35){
+        pointers.set(e.pointerId, dx < 0 ? 'L' : 'R');
+        start.moved = true;
       }
-    } else if(!save.auto && !start.jumped && dy < -36 && Math.abs(dy) > Math.abs(dx)){
-      player.jumpBuffer = .18; start.jumped = true;
+      // Swipe upward to jump. Diagonal swipes can jump and steer at the same time.
+      if(!save.auto && !start.jumped && dy < -14 && Math.abs(dy) >= Math.abs(dx) * .25){
+        player.jumpBuffer = .2;
+        start.jumped = true;
+        start.moved = true;
+      }
+    } else if(!save.auto && !start.jumped && dy < -18 && Math.abs(dy) > Math.abs(dx) * .65){
+      player.jumpBuffer = .2;
+      start.jumped = true;
     }
     refreshTouch();
   };
@@ -612,9 +620,11 @@
   window.addEventListener('pointerup', e => {
     const start = swipeStarts.get(e.pointerId);
     if(start && gameMode === 'playing' && !save.auto && !start.jumped){
-      const dx = e.clientX - (canvas.getBoundingClientRect().left + start.x);
-      const dy = e.clientY - (canvas.getBoundingClientRect().top + start.y);
-      if(Math.hypot(dx,dy) < 18) player.jumpBuffer = .18;
+      const rect = canvas.getBoundingClientRect();
+      const dx = e.clientX - (rect.left + start.x);
+      const dy = e.clientY - (rect.top + start.y);
+      // A forgiving tap target also lets a second finger tap to jump while steering.
+      if(Math.hypot(dx,dy) < 26) player.jumpBuffer = .2;
     }
     resetPointer(e);
   });
@@ -702,7 +712,7 @@
       if(player.vy < -120){ const strength = clamp((-player.vy - 120) / 900, 0, 1); shake = save.reducedShake ? .05 + strength*.12 : .12 + strength*.58; }
       else { springShakeActive = false; shake = Math.max(shake, save.reducedShake ? .04 : .1); }
     }
-    player.vx += (inputDir()*700 - player.vx) * Math.min(1, dt*19);
+    player.vx += (inputDir()*640 - player.vx) * Math.min(1, dt*25);
     if(player.jet > 0){
       player.jet -= dt; player.vy = lerp(player.vy, -950, Math.min(1, dt*8));
       spawnParticles(player.x+player.w/2, player.y+player.h, Math.random()<.5 ? 1 : 0, Math.random()<.5 ? '#FF9800' : '#FFEB3B', .5);
