@@ -366,7 +366,6 @@
     stomp:()=>tone(240,.2,'sawtooth',.07,80),
     hit:()=>tone(170,.55,'sawtooth',.1,40),
     biome:()=>[392,523,659,784].forEach((f,i)=>tone(f,.3,'sine',.055,null,i*.11)),
-    shield:()=>tone(700,.25,'sine',.09,180),
     crumble:()=>tone(120,.2,'square',.04,60)
   };
 
@@ -783,9 +782,7 @@
           e.dead = true; run.bonus += stomp ? 50 : 25; if(stomp){ run.stomps++; player.vy = -Math.sqrt(2*gravityAt(player.y)*420); }
           popup(e.x, ey - cameraY, stomp ? '+50 STOMP!' : '+25', '#FFAB91'); spawnParticles(e.x, ey, 14, e.ocean ? '#FFD54F' : '#90A4AE', 1.2); sfx.stomp(); shake = save.reducedShake ? .06 : .25;
         } else if(player.invuln > 0){ /* grace */ }
-        else if(player.shield){
-          player.shield = false; player.invuln = 1.2; e.dead = true; sfx.shield(); spawnParticles(pcx, pcy, 16, '#40C4FF', 1.4); shake = save.reducedShake ? .08 : .3;
-        } else { die('zap'); return; }
+        else { die('zap'); return; }
       }
     }
 
@@ -1592,7 +1589,6 @@
     // power-up timers
     const items = [];
     if(player.jet > 0) items.push({icon:'🚀', f:player.jet/3, c:'#FF5252'});
-    if(player.shield) items.push({icon:'🛡️', f:clamp(player.shieldTimer/8, 0, 1), c:'#40C4FF'});
     if(player.magnet > 0) items.push({icon:'🧲', f:player.magnet/9, c:'#B388FF'});
     let y = 78;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
