@@ -139,6 +139,7 @@
         <div class="settingLine"><span>Background music</span><button id="settingsMusicBtn">ON</button></div>
         <div class="settingLine"><span>Auto-hop</span><button id="settingsAutoBtn">ON</button></div>
         <div class="settingLine"><span>Touch controls</span><button id="touchModeBtn">SWIPE</button></div>
+        <div class="settingLine"><span>Side tap</span><button id="sideTapBtn">OFF</button></div>
         <div class="settingLine"><span>Reduced screen shake</span><button id="shakeModeBtn">OFF</button></div>
         <button id="settingsCloseBtn" class="bubbleBtn secondary" style="margin-top:16px">DONE</button>
       </div>
@@ -227,6 +228,7 @@
     music: store.get('cloudboundV17Music', '1') === '1',
     auto: store.get('cloudboundV4Auto', '1') === '1',
     touchMode: store.get('cloudboundV18TouchMode', 'swipe'),
+    sideTap: store.get('cloudboundV19SideTap', '0') === '1',
     dark: store.get('cloudboundV5Dark', '0') === '1',
     trail: store.get('cloudboundV5Trail', '1') === '1',
     reducedShake: store.get('cloudboundV5Shake', '0') === '1',
@@ -234,7 +236,7 @@
   };
   function persist(){
     store.set('cloudboundV3Best', Math.round(save.best)); store.set('cloudboundV4Coins', save.coins);
-    store.set('cloudboundV4Skin', save.skin); store.set('cloudboundV5Dark', save.dark ? '1':'0'); store.set('cloudboundV5Trail', save.trail ? '1':'0'); store.set('cloudboundV5Shake', save.reducedShake ? '1':'0'); store.set('cloudboundV5Owned', save.owned.join(',')); store.set('cloudboundV4Sound', save.sound ? '1' : '0'); store.set('cloudboundV4Auto', save.auto ? '1' : '0'); store.set('cloudboundV17Music', save.music ? '1' : '0'); store.set('cloudboundV18TouchMode', save.touchMode);
+    store.set('cloudboundV4Skin', save.skin); store.set('cloudboundV5Dark', save.dark ? '1':'0'); store.set('cloudboundV5Trail', save.trail ? '1':'0'); store.set('cloudboundV5Shake', save.reducedShake ? '1':'0'); store.set('cloudboundV5Owned', save.owned.join(',')); store.set('cloudboundV4Sound', save.sound ? '1' : '0'); store.set('cloudboundV4Auto', save.auto ? '1' : '0'); store.set('cloudboundV17Music', save.music ? '1' : '0'); store.set('cloudboundV18TouchMode', save.touchMode); store.set('cloudboundV19SideTap', save.sideTap ? '1' : '0');
   }
 
   /* ---------- data ---------- */
@@ -530,6 +532,7 @@
     $('settingsMusicBtn').textContent = save.music ? 'ON' : 'OFF';
     $('settingsAutoBtn').textContent = save.auto ? 'ON' : 'OFF';
     $('touchModeBtn').textContent = save.touchMode.toUpperCase();
+    $('sideTapBtn').textContent = save.sideTap ? 'ON' : 'OFF';
     $('shakeModeBtn').textContent = save.reducedShake ? 'ON' : 'OFF';
   }
   function renderShop(){
@@ -594,9 +597,9 @@
     // Lifting and placing the thumb elsewhere will not instantly steer the player.
     const playerAnchorX = player.x + player.w/2;
     swipeStarts.set(e.pointerId, {x, y, jumped:false, moved:false, lastX:x, lastY:y, playerAnchorX});
-    pointers.set(e.pointerId, save.touchMode === 'classic' ? (gameX < W/2 ? 'L' : 'R') : null);
-    if(save.touchMode === 'swipe') thumbTargetX = clamp(playerAnchorX, player.w/2, W-player.w/2);
-    if(save.touchMode === 'classic' && !save.auto && gameX >= W/2) player.jumpBuffer = .16;
+    pointers.set(e.pointerId, save.sideTap || save.touchMode === 'classic' ? (gameX < W/2 ? 'L' : 'R') : null);
+    if(save.touchMode === 'swipe' && !save.sideTap) thumbTargetX = clamp(playerAnchorX, player.w/2, W-player.w/2);
+    if(save.touchMode === 'classic' && !save.sideTap && !save.auto && gameX >= W/2) player.jumpBuffer = .16;
     try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
     refreshTouch();
   }, {passive:false});
@@ -607,7 +610,7 @@
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const dx = x - start.x, dy = y - start.y;
-    if(save.touchMode === 'swipe'){
+    if(save.touchMode === 'swipe' && !save.sideTap){
       // Steer relative to where this touch began. Repositioning a lifted thumb
       // won't send the player toward the new touch location; only thumb movement steers.
       thumbTargetX = clamp(start.playerAnchorX + dx * (W / Math.max(1, rect.width)), player.w/2, W-player.w/2);
@@ -732,7 +735,7 @@
       if(player.vy < -120){ const strength = clamp((-player.vy - 120) / 900, 0, 1); shake = save.reducedShake ? .05 + strength*.12 : .12 + strength*.58; }
       else { springShakeActive = false; shake = Math.max(shake, save.reducedShake ? .04 : .1); }
     }
-    if(save.touchMode === 'swipe' && thumbTargetX !== null){
+    if(save.touchMode === 'swipe' && !save.sideTap && thumbTargetX !== null){
       const targetError = thumbTargetX - (player.x + player.w/2);
       if(Math.abs(targetError) < 2.5) player.vx = 0;
       else player.vx = clamp(targetError * 8, -640, 640);
@@ -1667,7 +1670,8 @@
   $('settingsSoundBtn').addEventListener('click',()=>{save.sound=!save.sound;persist();applySettings();renderMenu();});
   $('settingsMusicBtn').addEventListener('click',()=>{save.music=!save.music;persist();applySettings();if(save.music)syncMusic();else stopMusic();});
   $('settingsAutoBtn').addEventListener('click',()=>{save.auto=!save.auto;persist();applySettings();renderMenu();syncJumpBtn();});
-  $('touchModeBtn').addEventListener('click',()=>{save.touchMode=save.touchMode==='swipe'?'classic':'swipe';persist();applySettings();touch.left=touch.right=false;pointers.clear();swipeStarts.clear();});
+  $('touchModeBtn').addEventListener('click',()=>{save.touchMode=save.touchMode==='swipe'?'classic':'swipe';persist();applySettings();touch.left=touch.right=false;pointers.clear();swipeStarts.clear();thumbTargetX=null;});
+  $('sideTapBtn').addEventListener('click',()=>{save.sideTap=!save.sideTap;persist();applySettings();touch.left=touch.right=false;pointers.clear();swipeStarts.clear();thumbTargetX=null;});
   $('shakeModeBtn').addEventListener('click',()=>{save.reducedShake=!save.reducedShake;persist();applySettings();});
   ui.soundBtn.addEventListener('click', () => { save.sound = !save.sound; persist(); renderMenu(); if(save.sound) sfx.coin(1); });
   ui.autoBtn.addEventListener('click', () => { save.auto = !save.auto; persist(); renderMenu(); });
