@@ -572,6 +572,7 @@
   /* ---------- robust mobile touch controls ---------- */
   const pointers = new Map();
   const swipeStarts = new Map();
+  let thumbTargetX = null;
   function refreshTouch(){
     let l = false, r = false;
     for(const s of pointers.values()){ if(s === 'L') l = true; if(s === 'R') r = true; }
@@ -579,7 +580,9 @@
   }
   canvas.style.touchAction = 'none';
   const resetPointer = e => {
-    swipeStarts.delete(e.pointerId); pointers.delete(e.pointerId); refreshTouch();
+    swipeStarts.delete(e.pointerId); pointers.delete(e.pointerId);
+    if(swipeStarts.size === 0) thumbTargetX = null;
+    refreshTouch();
   };
   canvas.addEventListener('pointerdown', e => {
     if(gameMode !== 'playing') return;
@@ -587,8 +590,9 @@
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const gameX = x * (W / Math.max(1, rect.width));
-    swipeStarts.set(e.pointerId, {x, y, jumped:false, moved:false});
+    swipeStarts.set(e.pointerId, {x, y, jumped:false, moved:false, lastX:x, lastY:y});
     pointers.set(e.pointerId, save.touchMode === 'classic' ? (gameX < W/2 ? 'L' : 'R') : null);
+    if(save.touchMode === 'swipe') thumbTargetX = clamp(gameX, player.w/2, W-player.w/2);
     if(save.touchMode === 'classic' && !save.auto && gameX >= W/2) player.jumpBuffer = .16;
     try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
     refreshTouch();
@@ -601,13 +605,10 @@
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const dx = x - start.x, dy = y - start.y;
     if(save.touchMode === 'swipe'){
-      // Small horizontal swipes respond quickly, without needing a long drag.
-      if(Math.abs(dx) > 3 && Math.abs(dx) >= Math.abs(dy) * .3){
-        pointers.set(e.pointerId, dx < 0 ? 'L' : 'R');
-        start.moved = true;
-      }
+      // In swipe mode the player tracks the thumb's horizontal screen position.
+      thumbTargetX = clamp(x * (W / Math.max(1, rect.width)), player.w/2, W-player.w/2);
+      if(Math.abs(dx) > 3 || Math.abs(dy) > 3) start.moved = true;
       // Upward or diagonal swipe: jump immediately when grounded, otherwise buffer it.
-      // Keep the horizontal direction active so the same gesture can jump and steer.
       if(!save.auto && !start.jumped && dy < -9 && Math.abs(dy) >= Math.abs(dx) * .18){
         if(player.onGround || player.coyote > 0) doJump();
         else player.jumpBuffer = .24;
@@ -727,7 +728,13 @@
       if(player.vy < -120){ const strength = clamp((-player.vy - 120) / 900, 0, 1); shake = save.reducedShake ? .05 + strength*.12 : .12 + strength*.58; }
       else { springShakeActive = false; shake = Math.max(shake, save.reducedShake ? .04 : .1); }
     }
-    player.vx += (inputDir()*640 - player.vx) * Math.min(1, dt*25);
+    if(save.touchMode === 'swipe' && thumbTargetX !== null){
+      const targetError = thumbTargetX - (player.x + player.w/2);
+      if(Math.abs(targetError) < 2.5) player.vx = 0;
+      else player.vx = clamp(targetError * 8, -640, 640);
+    } else {
+      player.vx += (inputDir()*640 - player.vx) * Math.min(1, dt*25);
+    }
     if(player.jet > 0){
       player.jet -= dt; player.vy = lerp(player.vy, -950, Math.min(1, dt*8));
       spawnParticles(player.x+player.w/2, player.y+player.h, Math.random()<.5 ? 1 : 0, Math.random()<.5 ? '#FF9800' : '#FFEB3B', .5);
