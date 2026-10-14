@@ -24,7 +24,7 @@
   @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
   .brand{
-    font-family:'Fredoka','Trebuchet MS',sans-serif;font-size:clamp(36px,9vw,56px);font-weight:700;letter-spacing:-1px;line-height:1;
+    font-family:'Fredoka','Trebuchet MS',sans-serif;font-size:clamp(52px,9vw,64px);font-weight:700;letter-spacing:-1px;line-height:1;
     text-align:center;margin-bottom:7px;animation:sunsetPulse 6s infinite ease-in-out,floaty 4s infinite ease-in-out;
     -webkit-text-stroke:1px #1a1c23;text-shadow:0 3px 0 #1a1c23,0 6px 12px rgba(0,0,0,.18)
   }
@@ -1437,6 +1437,33 @@
     if(menu){
       for(const cl of world.clouds) drawCloud(cl.x, cl.y, cl.w, cl.h, cl.a, true);
       for(const b of world.birds) drawBird(b.x, b.y, b.scale, b.dir, t, b.phase);
+
+      // Keep the rolling starter hills clearly visible on the home screen too.
+      // These sit behind the menu UI and use layered colours for depth.
+      ctx.save();
+      ctx.globalAlpha = .96;
+      ctx.fillStyle = '#b79ac8';
+      ctx.beginPath();
+      ctx.moveTo(0, H); ctx.lineTo(0, H*.76);
+      ctx.bezierCurveTo(W*.16, H*.72, W*.25, H*.62, W*.43, H*.68);
+      ctx.bezierCurveTo(W*.61, H*.74, W*.76, H*.65, W, H*.70);
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+
+      ctx.fillStyle = '#806a98';
+      ctx.beginPath();
+      ctx.moveTo(0, H); ctx.lineTo(0, H*.83);
+      ctx.bezierCurveTo(W*.17, H*.80, W*.27, H*.69, W*.43, H*.75);
+      ctx.bezierCurveTo(W*.61, H*.81, W*.79, H*.73, W, H*.78);
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+
+      ctx.fillStyle = '#514563';
+      ctx.beginPath();
+      ctx.moveTo(0, H); ctx.lineTo(0, H*.91);
+      ctx.bezierCurveTo(W*.18, H*.88, W*.31, H*.84, W*.48, H*.89);
+      ctx.bezierCurveTo(W*.68, H*.94, W*.82, H*.86, W, H*.90);
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+      ctx.restore();
+
       ctx.restore(); return;
     }
 
