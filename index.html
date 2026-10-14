@@ -627,8 +627,14 @@
       const rect = canvas.getBoundingClientRect();
       const dx = e.clientX - (rect.left + start.x);
       const dy = e.clientY - (rect.top + start.y);
-      // A forgiving tap target also lets a second finger tap to jump while steering.
-      if(Math.hypot(dx,dy) < 26) player.jumpBuffer = .2;
+      // Catch short upward gestures that iOS may deliver mainly at touch release.
+      if(dy < -9 && Math.abs(dy) >= Math.abs(dx) * .18){
+        if(player.onGround || player.coyote > 0) doJump();
+        else player.jumpBuffer = .24;
+      } else if(Math.hypot(dx,dy) < 26) {
+        // A tap can jump while another finger is steering.
+        player.jumpBuffer = .2;
+      }
     }
     resetPointer(e);
   });
