@@ -585,7 +585,7 @@
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const gameX = x * (W / Math.max(1, rect.width));
-    swipeStarts.set(e.pointerId, {x, y, jumped:false});
+    swipeStarts.set(e.pointerId, {x, y, lastX:x, lastY:y, jumped:false, moved:false});
     pointers.set(e.pointerId, save.touchMode === 'classic' ? (gameX < W/2 ? 'L' : 'R') : null);
     if(save.touchMode === 'classic' && !save.auto && gameX >= W/2) player.jumpBuffer = .13;
     try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
@@ -599,9 +599,9 @@
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const dx = x - start.x, dy = y - start.y;
     if(save.touchMode === 'swipe'){
-      if(Math.abs(dx) > 10 && Math.abs(dx) >= Math.abs(dy) * .55) pointers.set(e.pointerId, dx < 0 ? 'L' : 'R');
+      if(Math.abs(dx) > 7 && Math.abs(dx) >= Math.abs(dy) * .45){ pointers.set(e.pointerId, dx < 0 ? 'L' : 'R'); start.moved = true; }
       if(!save.auto && !start.jumped && dy < -30 && Math.abs(dy) > Math.abs(dx) * .8){
-        player.jumpBuffer = .18; start.jumped = true; pointers.set(e.pointerId, null);
+        player.jumpBuffer = .18; start.jumped = true; start.moved = true; pointers.set(e.pointerId, null);
       }
     } else if(!save.auto && !start.jumped && dy < -36 && Math.abs(dy) > Math.abs(dx)){
       player.jumpBuffer = .18; start.jumped = true;
@@ -609,7 +609,15 @@
     refreshTouch();
   };
   window.addEventListener('pointermove', movePointer, {passive:false});
-  window.addEventListener('pointerup', resetPointer);
+  window.addEventListener('pointerup', e => {
+    const start = swipeStarts.get(e.pointerId);
+    if(start && gameMode === 'playing' && !save.auto && !start.jumped){
+      const dx = e.clientX - (canvas.getBoundingClientRect().left + start.x);
+      const dy = e.clientY - (canvas.getBoundingClientRect().top + start.y);
+      if(Math.hypot(dx,dy) < 18) player.jumpBuffer = .18;
+    }
+    resetPointer(e);
+  });
   window.addEventListener('pointercancel', resetPointer);
   const inputDir = () => ((keys.ArrowRight||keys.KeyD||touch.right)?1:0) - ((keys.ArrowLeft||keys.KeyA||touch.left)?1:0);
 
@@ -694,7 +702,7 @@
       if(player.vy < -120){ const strength = clamp((-player.vy - 120) / 900, 0, 1); shake = save.reducedShake ? .05 + strength*.12 : .12 + strength*.58; }
       else { springShakeActive = false; shake = Math.max(shake, save.reducedShake ? .04 : .1); }
     }
-    player.vx += (inputDir()*540 - player.vx) * Math.min(1, dt*16);
+    player.vx += (inputDir()*700 - player.vx) * Math.min(1, dt*19);
     if(player.jet > 0){
       player.jet -= dt; player.vy = lerp(player.vy, -950, Math.min(1, dt*8));
       spawnParticles(player.x+player.w/2, player.y+player.h, Math.random()<.5 ? 1 : 0, Math.random()<.5 ? '#FF9800' : '#FFEB3B', .5);
@@ -930,9 +938,21 @@
     } else {
       const P = POWER[it.type], bob = Math.sin(t*3 + it.x)*4;
       ctx.save(); ctx.translate(it.x, y + bob);
-      drawHalo(P.c, 0, 0, 90, 90, .85); ctx.fillStyle = P.c; ctx.beginPath(); ctx.arc(0,0,22,0,Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(0,0,17,0,Math.PI*2); ctx.fill();
-      ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.fillText(P.icon, 0, 1);
+      drawHalo(P.c, 0, 0, 90, 90, .85);
+      const orb = ctx.createRadialGradient(-7,-9,2,0,0,24);
+      orb.addColorStop(0, '#ffffff'); orb.addColorStop(.42, P.c); orb.addColorStop(1, shade(P.c,-.42));
+      ctx.fillStyle = orb; ctx.beginPath(); ctx.arc(0,0,22,0,Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+      if(it.type === 'shield'){
+        ctx.save(); ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(0,-16); ctx.lineTo(13,-11); ctx.lineTo(11,3);
+        ctx.quadraticCurveTo(8,11,0,16); ctx.quadraticCurveTo(-8,11,-11,3); ctx.lineTo(-13,-11); ctx.closePath();
+        ctx.fillStyle = '#e8fbff'; ctx.fill(); ctx.strokeStyle = '#087da8'; ctx.lineWidth = 2.2; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,-11); ctx.lineTo(0,11); ctx.moveTo(-8,-6); ctx.lineTo(8,-6);
+        ctx.strokeStyle = '#40c4ff'; ctx.lineWidth = 2.5; ctx.stroke(); ctx.restore();
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
+        ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#17212b'; ctx.fillText(P.icon, 0, 1);
+      }
       ctx.restore();
     }
   }
